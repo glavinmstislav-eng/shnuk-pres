@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Shnuk Eva</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap">
+<style>
+:root{--red:#e30613;--gray:#8a8a8a;--black:#000;--white:#fff;--bg:#e4e4e4;--fg:#000}
+@media (prefers-color-scheme:dark){:root{--bg:#262626;--fg:#fff}}
+*,*::before,*::after{box-sizing:border-box;border-radius:0}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.5 "Share Tech Mono",ui-monospace,Menlo,Consolas,monospace;display:flex;flex-direction:column;max-width:860px;margin:0 auto;padding:14px}
+h1{margin:0 0 12px;align-self:flex-start;background:var(--red);color:var(--white);font-weight:400;font-size:clamp(28px,6vw,48px);padding:.1em .4em;box-shadow:6px 6px 0 var(--black)}
+.bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+select,input,button{font:inherit;border:2px solid var(--black);background:var(--white);color:var(--black);padding:.5em .8em}
+button{background:var(--red);color:var(--white);border-color:var(--red);cursor:pointer}
+button:hover:not(:disabled){box-shadow:4px 4px 0 var(--black);transform:translate(-2px,-2px)}
+button:disabled{background:var(--gray);border-color:var(--gray);cursor:default}
+:focus-visible{outline:3px solid var(--red);outline-offset:2px}
+#st{font-size:14px;color:var(--gray);margin:0 0 8px;min-height:1.4em}
+#pb{height:8px;background:var(--gray);margin-bottom:10px;display:none}
+#pb i{display:block;height:100%;width:0;background:var(--red)}
+#log{flex:1;overflow-y:auto;background:var(--white);color:var(--black);padding:14px;box-shadow:0 6px 24px rgba(0,0,0,.18);display:flex;flex-direction:column;gap:10px;min-height:200px}
+.m{max-width:85%;padding:.6em .9em;white-space:pre-wrap;word-wrap:break-word}
+.u{align-self:flex-end;background:var(--black);color:var(--white)}
+.a{align-self:flex-start;background:var(--bg);color:var(--black);border-left:6px solid var(--red)}
+form{display:flex;gap:10px;margin-top:10px;padding-bottom:env(safe-area-inset-bottom,0px)}
+input{flex:1;min-width:0}
+</style>
+</head>
+<body>
+<h1>SHNUK EVA</h1>
+<div class="bar">
+  <select id="model" aria-label="Модель">
+    <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen2.5 0.5B (быстрая, ~400 МБ)</option>
+    <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen2.5 1.5B (умнее, ~1 ГБ)</option>
+    <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama 3.2 1B (~700 МБ)</option>
+  </select>
+  <button id="load">Загрузить Еву</button>
+</div>
+<p id="st">Ева работает локально в вашем браузере, без токенов и серверов. Первая загрузка скачивает модель, дальше она берётся из кэша.</p>
+<div id="pb"><i></i></div>
+<div id="log" aria-live="polite"></div>
+<form id="f"><input id="q" placeholder="Напишите Еве..." autocomplete="off" disabled><button id="send" disabled>Отправить</button></form>
+
+<script type="module">
+import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+const $=s=>document.querySelector(s);
+const PERSONA="Ты Ева, ИИ-помощница проекта Shnuk. Отвечай по-русски, коротко и с юмором. Никогда не выдумывай факты. Если не знаешь ответа или фактов недостаточно, прямо признайся: «Я не знаю».";
+const KB=[
+{k:["основ","созда","2023","мужик","роман"],t:"Shnuk основан в 2023 году Романом Мужиковым. Роман Мужиков — основатель и бывший глава компании."},
+{k:["телефон","смартфон","бумаж","устройств","произво","звон","компани","модел"],t:"Shnuk шуточно называется компанией и делает бумажные модели телефонов. Они не настоящие: не имеют функционала смартфонов и не могут звонить."},
+{k:["цен","стоит","стоимост","сколько"],t:"Точная цена в моих материалах не указана. Известно только, что цена низкая, а устройства продаются малыми партиями без цели заработка."},
+{k:["глав","мстислав","степанов","петрунин","бойков","команд","участ","илья","андрей"],t:"Команда: Главин Мстислав — глава компании, маркетинг, производство, поддержка. Илья Степанов — идеи. Андрей Петрунин — ничего не сделал. Илья Бойков — продажи и тоже ничего не сделал. Роман Мужиков — основатель."},
+{k:["открыт","исходник","open","source","печат","скача","файл","опенсорс"],t:"Файлы моделей Shnuk открыты: любую модель можно напечатать самому. Но это не оригинал, размер и качество могут отличаться, и называть её оригинальной нельзя. Исходники лежат на GitHub (shnuk-opensourse)."},
+{k:["дизайн","цвет","шрифт","стиль","форм","красн","палитр","квадрат","круг"],t:"Дизайн Shnuk: четыре цвета (красный, серый, чёрный, белый), моноширинный шрифт ST-Simple-Square, заголовки на красной прямоугольной подложке. Формы: круг, квадрат, прямоугольник и пятиугольник, все без скруглений."},
+{k:["axogen","аксоген","коллаб","tiktok","тикток"],t:"У Shnuk коллаборация с Axogen. TikTok Axogen: @ilyasik2288, TikTok Shnuk: @glavin64."},
+{k:["os","ос","браузер","qr","cooop","данные"],t:"Shnuk OS — браузерная операционная система. Данные хранятся только на устройстве пользователя, кроме файлов, которыми делятся через cooop. QR-коды на устройствах временные: создатели постараются, чтобы они работали ещё два года с 13.09.26."},
+{k:["истори","тапк","tapok","сериал","игра","убытк","продаж"],t:"История: осенью 2025 проект чуть не закрылся из-за убытков. С ноября 2025 по март 2026 вышло около 20 эпизодов сериала про тапки The Tapok Cross. В апреле 2026 стартовали первые за год продажи, в сентябре 2026 вышла игра по тапкам."},
+{k:["возврат","вернуть","деньги","закон","купить","коммерч"],t:"Shnuk не занимается коммерцией и продаёт устройства малыми партиями без цели заработка. Покупатель может вернуть устройство и получить деньги, если не ухудшал его состояние."}
+];
+const IDK=[
+"Честно признаюсь: я не знаю ответа на этот вопрос. В моих материалах о Shnuk этого нет, а выдумывать я не буду. Спросите про бумажные телефоны, команду, дизайн, Open Source или Axogen.",
+"Тут я пас: ответа я не знаю. Лучше сказать об этом прямо, чем придумать что-нибудь красивое. Могу рассказать о Shnuk, его истории и дизайне.",
+"Я не знаю, что ответить. Это за пределами того, что мне известно о Shnuk. Попробуйте спросить про проект, команду или правила дизайна."
+];
+const SMALL=/^(привет|здравств|здорово|хай|салют|добр|спасибо|благодар|пока|кто ты|ты кто|как тебя зовут|как дела|что ты умеешь)/;
+const norm=s=>s.toLowerCase().replace(/ё/g,"е");
+function find(q){const w=norm(q).match(/[a-zа-я0-9@]+/g)||[];return KB.map(f=>({t:f.t,n:f.k.filter(k=>w.some(x=>k.length<4?x===k:x.startsWith(k))).length})).filter(o=>o.n).sort((a,b)=>b.n-a.n).slice(0,3).map(o=>o.t)}
+let engine=null,busy=false;const hist=[];
+const st=t=>$("#st").textContent=t;
+function add(cls,text){const d=document.createElement("div");d.className="m "+cls;d.textContent=text;$("#log").appendChild(d);$("#log").scrollTop=1e9;return d}
+$("#load").onclick=async()=>{
+  if(!navigator.gpu){st("Нужен браузер с WebGPU: Chrome или Edge (десктоп или свежий Android).");return}
+  $("#load").disabled=true;$("#model").disabled=true;$("#pb").style.display="block";
+  try{
+    engine=await webllm.CreateMLCEngine($("#model").value,{initProgressCallback:p=>{$("#pb i").style.width=Math.round(p.progress*100)+"%";st(p.text)}});
+    $("#pb").style.display="none";st("Ева готова. Пишите!");
+    $("#q").disabled=false;$("#send").disabled=false;$("#q").focus();
+    add("a","Привет! Я Ева, помощница Shnuk. Спрашивайте про бумажные телефоны, дизайн или проект. Если чего-то не знаю, так и скажу.");
+  }catch(e){st("Не удалось загрузить модель: "+e.message);$("#load").disabled=false;$("#model").disabled=false;$("#pb").style.display="none"}
+};
+$("#f").onsubmit=async e=>{
+  e.preventDefault();const text=$("#q").value.trim();if(!text||!engine||busy)return;
+  busy=true;$("#q").value="";$("#send").disabled=true;
+  add("u",text);const out=add("a","...");
+  const facts=find(text),small=SMALL.test(norm(text).trim());
+  try{
+    if(!facts.length&&!small){
+      const r=IDK[Math.floor(Math.random()*IDK.length)];out.textContent=r;
+      hist.push({role:"user",content:text},{role:"assistant",content:r});
+    }else{
+      const sys=PERSONA+(facts.length?"\nОтвечай ТОЛЬКО по этим фактам и ничего не добавляй от себя. Если ответа в них нет, скажи: «Я не знаю».\nФакты:\n- "+facts.join("\n- "):"\nЭто светская беседа: ответь коротко и не называй никаких фактов о Shnuk.");
+      const s=await engine.chat.completions.create({messages:[{role:"system",content:sys},...hist.slice(-6),{role:"user",content:text}],stream:true,temperature:.2,max_tokens:300});
+      let full="";
+      for await(const c of s){full+=c.choices[0]?.delta?.content||"";out.textContent=full;$("#log").scrollTop=1e9}
+      hist.push({role:"user",content:text},{role:"assistant",content:full});
+    }
+  }catch(err){out.textContent="Ошибка: "+err.message}
+  busy=false;$("#send").disabled=false;$("#q").focus();$("#log").scrollTop=1e9;
+};
+</script>
+</body>
+</html>
