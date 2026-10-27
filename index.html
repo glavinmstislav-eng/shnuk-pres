@@ -1,586 +1,173 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shnuk — редактор изображений</title>
-    <style>
-        @font-face {
-            font-family: 'ST-SimpleSquare';
-            src: url('ST-SimpleSquare.ttf') format('truetype');
-            font-weight: normal;
-            font-style: normal;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Свайпабельная кнопка · увеличенная</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+    html, body {
+      width: 100%;
+      height: 100%;
+      background: #FFFFFF;
+      overflow: hidden;
+      touch-action: none;
+    }
 
-        body {
-            background-color: #f0f0f0;
-            font-family: 'ST-SimpleSquare', monospace;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
 
-        .app {
-            display: flex;
-            width: 100%;
-            max-width: 1200px;
-            height: 90vh;
-            background-color: #ffffff;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            border: 1px solid #ddd;
-        }
+    .stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-        .sidebar {
-            width: 280px;
-            flex-shrink: 0;
-            background-color: #ffffff;
-            border-right: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            padding: 20px;
-            overflow-y: auto;
-        }
+    /* Кнопка: базовый размер увеличен вдвое (было 300px → стало 600px),
+       а масштабы увеличены вдвое (0.25 → 0.5, 0.20 → 0.40),
+       чтобы итоговый визуальный размер был ровно в 2 раза больше. */
+    .btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 600px;               /* было 300px — теперь в 2 раза больше */
+      height: auto;
+      transform: translate(-50%, -50%) scale(0.5);
+      transform-origin: center;
+      will-change: transform;
+      cursor: grab;
+      transition: none;
+    }
 
-        .sidebar-header {
-            background-color: #d32f2f;
-            padding: 12px 16px;
-            margin-bottom: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .btn.returning {
+      transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
 
-        .sidebar-header h1 {
-            color: #ffffff;
-            font-size: 18px;
-            font-weight: normal;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }
-
-        .gallery-title {
-            font-size: 14px;
-            color: #333333;
-            margin-bottom: 16px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            border-bottom: 2px solid #d32f2f;
-            padding-bottom: 8px;
-        }
-
-        .gallery {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-        }
-
-        .gallery-item {
-            background-color: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            cursor: pointer;
-            padding: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            transition: border-color 0.2s, box-shadow 0.2s;
-        }
-
-        .gallery-item:hover {
-            border-color: #d32f2f;
-            box-shadow: 0 2px 8px rgba(211, 47, 47, 0.15);
-        }
-
-        .gallery-item img {
-            width: 100%;
-            height: 70px;
-            object-fit: contain;
-            pointer-events: none;
-        }
-
-        .gallery-item span {
-            font-size: 10px;
-            color: #555555;
-            margin-top: 6px;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .main-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            background-color: #fafafa;
-        }
-
-        .toolbar {
-            background-color: #ffffff;
-            border-bottom: 1px solid #e0e0e0;
-            padding: 12px 20px;
-            display: flex;
-            gap: 12px;
-            align-items: center;
-        }
-
-        .tool-btn {
-            background-color: #d32f2f;
-            color: #ffffff;
-            border: none;
-            padding: 10px 20px;
-            font-family: 'ST-SimpleSquare', monospace;
-            font-size: 13px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            border-radius: 0;
-        }
-
-        .tool-btn:hover {
-            background-color: #b71c1c;
-        }
-
-        .tool-btn:active {
-            background-color: #9a0007;
-        }
-
-        .tool-btn:disabled {
-            background-color: #cccccc;
-            color: #888888;
-            cursor: not-allowed;
-        }
-
-        .canvas-wrapper {
-            flex: 1;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 30px;
-            background-color: #fafafa;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .canvas-container {
-            position: relative;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-            background-color: #ffffff;
-            border: 1px solid #e0e0e0;
-        }
-
-        canvas {
-            display: block;
-            cursor: default;
-        }
-
-        canvas.dragging {
-            cursor: grabbing;
-        }
-
-        .empty-state {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #aaaaaa;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            pointer-events: none;
-            text-align: center;
-            line-height: 1.8;
-        }
-
-        .empty-state span {
-            display: block;
-            font-size: 12px;
-            color: #cccccc;
-        }
-
-        .status-bar {
-            background-color: #ffffff;
-            border-top: 1px solid #e0e0e0;
-            padding: 8px 20px;
-            font-size: 11px;
-            color: #888888;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        @media (max-width: 768px) {
-            .app {
-                flex-direction: column;
-                height: auto;
-                max-height: none;
-            }
-
-            .sidebar {
-                width: 100%;
-                border-right: none;
-                border-bottom: 1px solid #e0e0e0;
-                max-height: 200px;
-            }
-
-            .gallery {
-                grid-template-columns: repeat(4, 1fr);
-            }
-
-            .gallery-item img {
-                height: 50px;
-            }
-
-            .canvas-wrapper {
-                min-height: 400px;
-            }
-        }
-    </style>
+    .btn.dragging {
+      cursor: grabbing;
+    }
+  </style>
 </head>
 <body>
-    <div class="app">
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1>SHNUK</h1>
-            </div>
-            <div class="gallery-title">Изображения</div>
-            <div class="gallery" id="gallery"></div>
-        </aside>
+  <div class="stage">
+    <img src="img-button.png" alt="Кнопка" class="btn" id="btn" draggable="false">
+  </div>
 
-        <main class="main-area">
-            <div class="toolbar">
-                <button class="tool-btn" id="btnClear" disabled>Очистить</button>
-            </div>
-            <div class="canvas-wrapper">
-                <div class="canvas-container" id="canvasContainer">
-                    <canvas id="canvas" width="800" height="600"></canvas>
-                    <div class="empty-state" id="emptyState">
-                        Выберите изображение
-                        <span>из левой панели</span>
-                    </div>
-                </div>
-            </div>
-            <div class="status-bar">
-                <span id="statusText">Готово</span>
-                <span id="coordText">—</span>
-            </div>
-        </main>
-    </div>
+  <script>
+    (function () {
+      const btn = document.getElementById('btn');
 
-    <script>
-        (function() {
-            const canvas = document.getElementById('canvas');
-            const ctx = canvas.getContext('2d');
-            const emptyState = document.getElementById('emptyState');
-            const btnClear = document.getElementById('btnClear');
-            const statusText = document.getElementById('statusText');
-            const coordText = document.getElementById('coordText');
+      const IMAGES = [
+        'img-button.png',
+        'img-button2.png',
+        'img-button3.png',
+        'img-button4.png'
+      ];
 
-            const IMAGES = [
-                { file: '1.png', name: 'Пакет 1' },
-                { file: '4.png', name: 'Олень' },
-                { file: '5.png', name: 'Мусор 1' },
-                { file: '6.png', name: 'Мусор 2' },
-                { file: '7.png', name: 'Рыба' }
-            ];
+      // Пороги увеличены вдвое — пропорционально размеру кнопки.
+      // Было [60, 130, 220] → стало [120, 260, 440].
+      const THRESHOLDS = [120, 260, 440];
 
-            let items = [];
-            let selectedIndex = -1;
-            let isDragging = false;
-            let dragOffsetX = 0;
-            let dragOffsetY = 0;
+      const BASE_SCALE = 0.5;    // было 0.25 — в 2 раза больше
+      const PRESS_SCALE = 0.40;  // было 0.20 — в 2 раза больше
 
-            const loadedImages = {};
+      let dragging = false;
+      let startX = 0, startY = 0;
+      let curX = 0, curY = 0;
+      let currentStage = 0;
 
-            function buildGallery() {
-                const gallery = document.getElementById('gallery');
-                IMAGES.forEach((img, idx) => {
-                    const div = document.createElement('div');
-                    div.className = 'gallery-item';
-                    div.dataset.index = idx;
-                    div.innerHTML = `
-                        <img src="${img.file}" alt="${img.name}" draggable="false">
-                        <span>${img.name}</span>
-                    `;
-                    div.addEventListener('click', () => addImage(idx));
-                    gallery.appendChild(div);
-                });
-            }
+      function applyTransform(x, y, scale) {
+        btn.style.transform =
+          `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
+      }
 
-            function preloadImages() {
-                IMAGES.forEach((img) => {
-                    const image = new Image();
-                    image.src = img.file;
-                    image.onload = () => {
-                        loadedImages[img.file] = image;
-                    };
-                    image.onerror = () => {
-                        console.warn('Не удалось загрузить: ' + img.file);
-                    };
-                });
-            }
+      function stageFromDistance(d) {
+        for (let i = THRESHOLDS.length - 1; i >= 0; i--) {
+          if (d >= THRESHOLDS[i]) return i + 1;
+        }
+        return 0;
+      }
 
-            function addImage(index) {
-                const imgData = IMAGES[index];
-                const img = loadedImages[imgData.file];
+      function setStage(stage) {
+        if (stage === currentStage) return;
+        currentStage = stage;
+        btn.src = IMAGES[stage];
+      }
 
-                if (!img || !img.complete || img.naturalWidth === 0) {
-                    statusText.textContent = 'Загрузка...';
-                    const tempImg = new Image();
-                    tempImg.src = imgData.file;
-                    tempImg.onload = () => {
-                        loadedImages[imgData.file] = tempImg;
-                        placeImage(tempImg);
-                    };
-                    tempImg.onerror = () => {
-                        statusText.textContent = 'Ошибка загрузки';
-                    };
-                    return;
-                }
+      function getPoint(e) {
+        if (e.touches && e.touches.length) {
+          return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+        }
+        return { x: e.clientX, y: e.clientY };
+      }
 
-                placeImage(img);
-            }
+      function onDown(e) {
+        e.preventDefault();
+        const p = getPoint(e);
+        startX = p.x;
+        startY = p.y;
+        curX = 0;
+        curY = 0;
+        dragging = true;
 
-            function placeImage(img) {
-                const maxW = 400;
-                const maxH = 400;
-                let w = img.naturalWidth;
-                let h = img.naturalHeight;
+        btn.classList.remove('returning');
+        btn.classList.add('dragging');
 
-                if (w > maxW || h > maxH) {
-                    const ratio = Math.min(maxW / w, maxH / h);
-                    w = Math.round(w * ratio);
-                    h = Math.round(h * ratio);
-                }
+        setStage(3);
+        applyTransform(0, 0, PRESS_SCALE);
+      }
 
-                const baseX = (canvas.width - w) / 2 + (Math.random() - 0.5) * 60;
-                const baseY = (canvas.height - h) / 2 + (Math.random() - 0.5) * 60;
+      function onMove(e) {
+        if (!dragging) return;
+        e.preventDefault();
 
-                const item = {
-                    img: img,
-                    x: Math.round(baseX),
-                    y: Math.round(baseY),
-                    w: Math.round(w),
-                    h: Math.round(h)
-                };
+        const p = getPoint(e);
+        curX = p.x - startX;
+        curY = p.y - startY;
+        const dist = Math.hypot(curX, curY);
 
-                items.push(item);
-                selectedIndex = items.length - 1;
+        setStage(stageFromDistance(dist));
 
-                render();
-                updateUI();
-                statusText.textContent = 'Добавлено';
-            }
+        const scale = dist > 5 ? BASE_SCALE : PRESS_SCALE;
+        applyTransform(curX, curY, scale);
+      }
 
-            function render() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
+      function onUp(e) {
+        if (!dragging) return;
+        dragging = false;
 
-                if (items.length === 0) {
-                    emptyState.style.display = 'block';
-                    return;
-                }
-                emptyState.style.display = 'none';
+        btn.classList.remove('dragging');
+        btn.classList.add('returning');
 
-                items.forEach((item, idx) => {
-                    ctx.drawImage(item.img, item.x, item.y, item.w, item.h);
+        currentStage = 0;
+        btn.src = IMAGES[0];
+        applyTransform(0, 0, BASE_SCALE);
+      }
 
-                    if (idx === selectedIndex) {
-                        ctx.strokeStyle = '#d32f2f';
-                        ctx.lineWidth = 2;
-                        ctx.setLineDash([6, 4]);
-                        ctx.strokeRect(item.x - 1, item.y - 1, item.w + 2, item.h + 2);
-                        ctx.setLineDash([]);
-                    }
-                });
-            }
+      btn.addEventListener('mousedown', onDown);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
 
-            function updateUI() {
-                btnClear.disabled = items.length === 0;
-                if (selectedIndex >= 0 && selectedIndex < items.length) {
-                    const item = items[selectedIndex];
-                    coordText.textContent = `X: ${item.x} Y: ${item.y} W: ${item.w} H: ${item.h}`;
-                } else {
-                    coordText.textContent = '—';
-                }
-            }
-
-            function hitTest(mx, my) {
-                for (let i = items.length - 1; i >= 0; i--) {
-                    const item = items[i];
-                    if (mx >= item.x && mx <= item.x + item.w &&
-                        my >= item.y && my <= item.y + item.h) {
-                        return i;
-                    }
-                }
-                return -1;
-            }
-
-            function getMousePos(e) {
-                const rect = canvas.getBoundingClientRect();
-                const scaleX = canvas.width / rect.width;
-                const scaleY = canvas.height / rect.height;
-                return {
-                    x: (e.clientX - rect.left) * scaleX,
-                    y: (e.clientY - rect.top) * scaleY
-                };
-            }
-
-            canvas.addEventListener('mousedown', (e) => {
-                const pos = getMousePos(e);
-                const idx = hitTest(pos.x, pos.y);
-
-                if (idx !== -1) {
-                    selectedIndex = idx;
-                    const item = items[idx];
-                    isDragging = true;
-                    dragOffsetX = pos.x - item.x;
-                    dragOffsetY = pos.y - item.y;
-                    canvas.classList.add('dragging');
-                    render();
-                    updateUI();
-                } else {
-                    selectedIndex = -1;
-                    render();
-                    updateUI();
-                }
-            });
-
-            window.addEventListener('mousemove', (e) => {
-                if (!isDragging || selectedIndex === -1) return;
-
-                const pos = getMousePos(e);
-                const item = items[selectedIndex];
-
-                let newX = pos.x - dragOffsetX;
-                let newY = pos.y - dragOffsetY;
-
-                newX = Math.max(0, Math.min(canvas.width - item.w, newX));
-                newY = Math.max(0, Math.min(canvas.height - item.h, newY));
-
-                item.x = Math.round(newX);
-                item.y = Math.round(newY);
-
-                render();
-                updateUI();
-            });
-
-            window.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    canvas.classList.remove('dragging');
-                    statusText.textContent = 'Перемещено';
-                }
-            });
-
-            canvas.addEventListener('touchstart', (e) => {
-                e.preventDefault();
-                const touch = e.touches[0];
-                const pos = getMousePos(touch);
-                const idx = hitTest(pos.x, pos.y);
-
-                if (idx !== -1) {
-                    selectedIndex = idx;
-                    const item = items[idx];
-                    isDragging = true;
-                    dragOffsetX = pos.x - item.x;
-                    dragOffsetY = pos.y - item.y;
-                    render();
-                    updateUI();
-                } else {
-                    selectedIndex = -1;
-                    render();
-                    updateUI();
-                }
-            }, { passive: false });
-
-            canvas.addEventListener('touchmove', (e) => {
-                e.preventDefault();
-                if (!isDragging || selectedIndex === -1) return;
-
-                const touch = e.touches[0];
-                const pos = getMousePos(touch);
-                const item = items[selectedIndex];
-
-                let newX = pos.x - dragOffsetX;
-                let newY = pos.y - dragOffsetY;
-
-                newX = Math.max(0, Math.min(canvas.width - item.w, newX));
-                newY = Math.max(0, Math.min(canvas.height - item.h, newY));
-
-                item.x = Math.round(newX);
-                item.y = Math.round(newY);
-
-                render();
-                updateUI();
-            }, { passive: false });
-
-            canvas.addEventListener('touchend', (e) => {
-                e.preventDefault();
-                isDragging = false;
-                statusText.textContent = 'Перемещено';
-            }, { passive: false });
-
-            btnClear.addEventListener('click', () => {
-                items = [];
-                selectedIndex = -1;
-                render();
-                updateUI();
-                statusText.textContent = 'Очищено';
-            });
-
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Delete' || e.key === 'Backspace') {
-                    if (selectedIndex >= 0 && selectedIndex < items.length) {
-                        items.splice(selectedIndex, 1);
-                        selectedIndex = items.length > 0 ? Math.min(selectedIndex, items.length - 1) : -1;
-                        render();
-                        updateUI();
-                        statusText.textContent = 'Удалено';
-                    }
-                }
-
-                if (selectedIndex >= 0 && selectedIndex < items.length) {
-                    const item = items[selectedIndex];
-                    const step = e.shiftKey ? 10 : 1;
-
-                    switch (e.key) {
-                        case 'ArrowUp':
-                            e.preventDefault();
-                            item.y = Math.max(0, item.y - step);
-                            break;
-                        case 'ArrowDown':
-                            e.preventDefault();
-                            item.y = Math.min(canvas.height - item.h, item.y + step);
-                            break;
-                        case 'ArrowLeft':
-                            e.preventDefault();
-                            item.x = Math.max(0, item.x - step);
-                            break;
-                        case 'ArrowRight':
-                            e.preventDefault();
-                            item.x = Math.min(canvas.width - item.w, item.x + step);
-                            break;
-                        default:
-                            return;
-                    }
-                    render();
-                    updateUI();
-                }
-            });
-
-            buildGallery();
-            preloadImages();
-            updateUI();
-            render();
-        })();
-    </script>
+      btn.addEventListener('touchstart', onDown, { passive: false });
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onUp);
+      window.addEventListener('touchcancel', onUp);
+    })();
+  </script>
 </body>
 </html>
